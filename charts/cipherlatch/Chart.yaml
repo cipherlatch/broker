@@ -1,0 +1,13 @@
+apiVersion: v2
+name: cipherlatch
+description: >-
+  Cipherlatch — Broker for Agentic Access Management. Identity and access broker for
+  AI agents: first-class agent identities owned by humans, short-lived scoped
+  ES256 tokens, credential brokering, and an enforcing gateway.
+type: application
+version: 0.1.0
+# Matches the application image tag you deploy; the app is versioned by git
+# sha in CI, so pin image.tag in values for reproducible installs.
+appVersion: "latest"
+home: https://github.com/cipherlatch/broker
+keywords: [iam, oauth2, agents, identity, broker]

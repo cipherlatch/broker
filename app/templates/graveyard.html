@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Graveyard{% endblock %}
+{% block heading %}Graveyard{% endblock %}
+{% block content %}
+
+<section class="card">
+  <div class="card-head">
+    <h2>Archived agents &amp; users</h2>
+    <div class="right">
+      {% if tombstones %}
+      <span class="filter-count" id="graveyard-count">{{ tombstones|length }} tombstones</span>
+      <span class="list-filter"><span class="mag">&#9906;</span>
+        <input data-filter="#graveyard-tbody" data-filter-count="#graveyard-count" data-filter-noun="tombstones"
+               placeholder="Filter&hellip;" aria-label="Filter tombstones"></span>
+      {% endif %}
+    </div>
+  </div>
+  <p class="muted small">Deleting is archiving: the object's row is removed (its name/email becomes
+    reusable) but its final state rests here under a time-ordered tombstone id, so audit rows that
+    reference the original id stay resolvable forever. Tombstones are immutable.</p>
+
+  {% if tombstones %}
+  <table class="table">
+    <thead><tr><th>Name</th><th>Kind</th><th>Original ID</th><th>Final state</th>
+      <th>Archived</th><th>By</th></tr></thead>
+    <tbody id="graveyard-tbody">
+      {% for t in tombstones %}
+      <tr>
+        <td><strong>{{ t.name }}</strong></td>
+        <td><span class="chip">{{ t.kind }}</span></td>
+        <td><code class="small">{{ t.original_id }}</code></td>
+        <td class="small"><code class="small">{{ t.snapshot | tojson }}</code></td>
+        <td class="muted small">{{ t.archived_at.strftime('%Y-%m-%d %H:%M') }} UTC
+          {% if t.original_created_at %}<div class="muted small">lived since {{ t.original_created_at.strftime('%Y-%m-%d') }}</div>{% endif %}</td>
+        <td class="small">{{ t.archived_by }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted empty">Nothing here yet. Archived agents and users will rest here, audit trail intact.</p>{% endif %}
+</section>
+
+{% endblock %}

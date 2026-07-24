@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block heading %}Users{% endblock %}
+{% block content %}
+
+<section class="card">
+  <div class="card-head">
+    <h2>Human principals</h2>
+    <div class="right">
+      {% if users %}
+      <span class="filter-count" id="users-count">{{ users|length }} users</span>
+      <span class="list-filter"><span class="mag">&#9906;</span>
+        <input data-filter="#users-tbody" data-filter-count="#users-count" data-filter-noun="users"
+               placeholder="Filter users&hellip;" aria-label="Filter users"></span>
+      {% endif %}
+      {% if can_manage %}
+      <button class="btn btn-primary" data-toggle="#create-user">Add user</button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if can_manage %}
+  <form id="create-user" class="stack hidden" method="post" action="/ui/users">
+    <div class="grid-3">
+      <label>Email <input name="email" type="email" required placeholder="person@example.com"></label>
+      <label>Display name <input name="display_name" placeholder="optional"></label>
+      <label>Role
+        <select name="role">
+          {% for r in roles %}
+          <option value="{{ r.name }}" {{ 'selected' if r.name == 'agent-manager' }}>{{ r.name }}</option>
+          {% endfor %}
+        </select></label>
+    </div>
+    <p class="muted small">Pre-provisions the account: the user signs in via SSO and is
+      linked by email on first login{% if not oidc_enabled %} (OIDC not configured yet){% endif %}.</p>
+    <div><button class="btn btn-primary" type="submit">Add user</button></div>
+  </form>
+  {% endif %}
+
+  <table class="table">
+    <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Agents</th><th>Last login</th>{% if can_manage %}<th></th>{% endif %}</tr></thead>
+    <tbody id="users-tbody">
+      {% for u in users %}
+      <tr>
+        <td><strong>{{ u.email }}</strong>
+          {% if u.sub is none %}<span class="badge">pending first login</span>{% endif %}</td>
+        <td class="muted">{{ u.display_name }}</td>
+        <td><span class="badge {{ 'badge-accent' if u.role and '*' in (u.role.permissions or []) }}">{{ u.role.name if u.role else '—' }}</span></td>
+        <td>{% if u.active %}<span class="badge badge-ok">active</span>
+            {% else %}<span class="badge badge-warn">disabled</span>{% endif %}</td>
+        <td>{{ agent_counts.get(u.id, 0) }}</td>
+        <td class="muted small">{{ u.last_login_at.strftime('%Y-%m-%d %H:%M') if u.last_login_at else '—' }}</td>
+        {% if can_manage %}
+        <td class="row-actions">
+          <button class="ghost" data-toggle="#edit-{{ u.id }}">edit</button>
+          <form method="post" action="/ui/users/{{ u.id }}/delete" class="inline">
+            <button class="ghost danger" type="submit"
+              data-confirm="Delete {{ u.email }}? All their agents will be revoked.">delete</button>
+          </form>
+        </td>
+        {% endif %}
+      </tr>
+      {% if can_manage %}
+      <tr id="edit-{{ u.id }}" class="hidden edit-row">
+        <td colspan="7">
+          <form class="grid-4 align-end" method="post" action="/ui/users/{{ u.id }}/update">
+            <label>Display name <input name="display_name" value="{{ u.display_name }}"></label>
+            <label>Role
+              <select name="role">
+                {% for r in roles %}
+                <option value="{{ r.name }}" {{ 'selected' if u.role and r.name == u.role.name }}>{{ r.name }}</option>
+                {% endfor %}
+              </select></label>
+            <label>Status
+              <select name="active">
+                <option value="true" {{ 'selected' if u.active }}>active</option>
+                <option value="false" {{ 'selected' if not u.active }}>disabled</option>
+              </select></label>
+            <div><button class="btn btn-primary" type="submit">Save</button></div>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% endblock %}

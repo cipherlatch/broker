@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Roles{% endblock %}
+{% block heading %}Roles{% endblock %}
+{% block content %}
+
+<section class="card">
+  <div class="card-head">
+    <h2>Roles &amp; permissions</h2>
+    <div class="right">
+      {% if roles %}
+      <span class="filter-count" id="roles-count">{{ roles|length }} roles</span>
+      <span class="list-filter"><span class="mag">&#9906;</span>
+        <input data-filter="#roles-tbody" data-filter-count="#roles-count" data-filter-noun="roles"
+               placeholder="Filter roles&hellip;" aria-label="Filter roles"></span>
+      {% endif %}
+      {% if can_manage %}
+      <button class="btn btn-primary" data-toggle="#create-role">New role</button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if can_manage %}
+  <form id="create-role" class="stack hidden" method="post" action="/ui/roles">
+    <div class="grid-2">
+      <label>Name <input name="name" required maxlength="64" placeholder="e.g. deploy-manager"></label>
+      <label>Description <input name="description" placeholder="What this role is for"></label>
+    </div>
+    <fieldset class="perm-grid">
+      <legend>Permissions</legend>
+      {% for perm, desc in catalog.items() %}
+      <label class="perm-item" title="{{ desc }}">
+        <input type="checkbox" name="permissions" value="{{ perm }}">
+        <span><code>{{ perm }}</code><span class="muted small">{{ desc }}</span></span>
+      </label>
+      {% endfor %}
+    </fieldset>
+    <div><button class="btn btn-primary" type="submit">Create role</button></div>
+  </form>
+  {% endif %}
+
+  <table class="table">
+    <thead><tr><th>Role</th><th>Description</th><th>Permissions</th><th>Users</th>{% if can_manage %}<th></th>{% endif %}</tr></thead>
+    <tbody id="roles-tbody">
+      {% for r in roles %}
+      <tr>
+        <td><strong>{{ r.name }}</strong>
+          {% if r.builtin %}<span class="badge">built-in</span>{% endif %}</td>
+        <td class="muted">{{ r.description }}</td>
+        <td>
+          {% for p in r.permissions %}<span class="chip {{ 'chip-token' if p == '*' }}">{{ p }}</span>{% endfor %}
+        </td>
+        <td>{{ usage.get(r.id, 0) }}</td>
+        {% if can_manage %}
+        <td class="row-actions">
+          {% if not r.builtin %}
+          <button class="ghost" data-toggle="#edit-{{ r.id }}">edit</button>
+          <form method="post" action="/ui/roles/{{ r.id }}/delete" class="inline">
+            <button class="ghost danger" type="submit"
+              data-confirm="Delete role {{ r.name }}?">delete</button>
+          </form>
+          {% else %}<span class="muted small">immutable</span>{% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% if can_manage and not r.builtin %}
+      <tr id="edit-{{ r.id }}" class="hidden edit-row">
+        <td colspan="5">
+          <form class="stack" method="post" action="/ui/roles/{{ r.id }}/update">
+            <label>Description <input name="description" value="{{ r.description }}"></label>
+            <fieldset class="perm-grid">
+              <legend>Permissions</legend>
+              {% for perm, desc in catalog.items() %}
+              <label class="perm-item" title="{{ desc }}">
+                <input type="checkbox" name="permissions" value="{{ perm }}"
+                  {{ 'checked' if perm in (r.permissions or []) }}>
+                <span><code>{{ perm }}</code><span class="muted small">{{ desc }}</span></span>
+              </label>
+              {% endfor %}
+            </fieldset>
+            <div><button class="btn btn-primary" type="submit">Save role</button></div>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% endblock %}

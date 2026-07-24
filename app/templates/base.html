@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Cipherlatch{% endblock %} · Cipherlatch</title>
+  <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
+  <style>:root { --accent: {{ accent }}; }</style>
+  <script>
+    // Apply theme + per-user accent before first paint to avoid flashing.
+    (function () {
+      const t = localStorage.getItem("cipherlatch-theme");
+      if (t) document.documentElement.dataset.theme = t;
+      const a = localStorage.getItem("cipherlatch-accent");
+      if (a) document.documentElement.style.setProperty("--accent", a);
+    })();
+  </script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="3.5" y="3.5" width="25" height="25" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M7.5 16 H13" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M15.5 16 H18.5" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="22.5" cy="16" r="2.7" fill="currentColor"/>
+      </svg></span>
+      <div>
+        <div class="brand-name">Cipherlatch</div>
+        <div class="brand-sub">agentic access mgmt</div>
+      </div>
+    </div>
+    <nav>
+      <a href="/ui/agents" class="{{ 'active' if nav == 'agents' }}">Agents</a>
+      {% if actor and (actor.has('credentials:read') or actor.has('credentials:read:all')) %}
+      <a href="/ui/credentials" class="{{ 'active' if nav == 'credentials' }}">Credentials</a>
+      {% endif %}
+      {% if actor and (actor.has('routes:read') or actor.has('routes:read:all')) %}
+      <a href="/ui/routes" class="{{ 'active' if nav == 'routes' }}">Gateway</a>
+      {% endif %}
+      {% if actor and (actor.has('policies:read') or actor.has('policies:read:all')) %}
+      <a href="/ui/policies" class="{{ 'active' if nav == 'policies' }}">Policies</a>
+      {% endif %}
+      {% if actor and (actor.has('routes:read') or actor.has('routes:read:all')
+                       or actor.has('credentials:read') or actor.has('credentials:read:all')) %}
+      <a href="/ui/access-map" class="{{ 'active' if nav == 'map' }}">Access map</a>
+      {% endif %}
+      <a href="/ui/audit" class="{{ 'active' if nav == 'audit' }}">Audit log</a>
+      {% if actor and actor.has('audit:read:all') %}
+      <a href="/ui/graveyard" class="{{ 'active' if nav == 'graveyard' }}">Graveyard</a>
+      {% endif %}
+      {% if actor and actor.has('users:read') %}
+      <a href="/ui/users" class="{{ 'active' if nav == 'users' }}">Users</a>
+      {% endif %}
+      {% if actor and actor.has('roles:read') %}
+      <a href="/ui/roles" class="{{ 'active' if nav == 'roles' }}">Roles</a>
+      {% endif %}
+      {% if actor and actor.has('service_keys:read') %}
+      <a href="/ui/service-keys" class="{{ 'active' if nav == 'service-keys' }}">Service keys</a>
+      {% endif %}
+      {% if actor and actor.is_admin %}
+      <a href="/ui/system" class="{{ 'active' if nav == 'system' }}">System</a>
+      <a href="/docs" target="_blank" rel="noopener">API docs ↗</a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-foot">agentic access broker</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title">{% block heading %}{% endblock %}</div>
+      {% if actor and actor.principal %}
+      <div class="topbar-user">
+        <button class="profile" id="profile-btn" aria-haspopup="true" aria-expanded="false">
+          <span class="avatar"{% if actor.principal.avatar %} style="background-image:url('{{ actor.principal.avatar }}')"{% endif %}>{% if not actor.principal.avatar %}{{ (actor.principal.display_name or actor.principal.email)[:1] | upper }}{% endif %}</span>
+          <span class="who">
+            <span class="nm">{{ actor.principal.display_name or actor.principal.email }}</span>
+            <span class="rl">{{ actor.role_name }}</span>
+          </span>
+          <span class="caret">▾</span>
+        </button>
+        <div class="menu" id="profile-menu" role="menu" hidden>
+          <div class="menu-id">{{ actor.principal.email }}</div>
+          <hr>
+          <div class="menu-row">
+            <span class="lbl">Appearance</span>
+            <label class="switch" title="Toggle light / dark">
+              <input type="checkbox" id="theme-switch">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div>
+          <div class="accent">
+            <span class="lbl">Accent</span>
+            <div class="swatches" id="accent-swatches"></div>
+            <div class="custom">
+              <input type="color" id="accent-color" value="#3D3C49" aria-label="Custom accent colour">
+              <input type="text" class="hex" id="accent-hex" value="#3D3C49" maxlength="7" spellcheck="false" aria-label="Accent hex">
+              <button class="btn-link" id="accent-reset" type="button" title="Back to default">reset</button>
+            </div>
+          </div>
+          <div class="menu-row">
+            <span class="lbl">Photo</span>
+            <form id="avatar-form" method="post" action="/ui/profile/avatar" style="display:flex;gap:8px;align-items:center">
+              <input type="hidden" name="data" id="avatar-data">
+              <input type="file" id="avatar-file" accept="image/png,image/jpeg,image/webp" hidden>
+              <button type="button" class="ghost" id="avatar-upload">Upload</button>
+              {% if actor.principal.avatar %}<button type="submit" class="btn-link" id="avatar-remove">Remove</button>{% endif %}
+            </form>
+          </div>
+          <hr>
+          <form method="post" action="/auth/logout">
+            <button class="ghost danger" type="submit" style="width:100%;text-align:left">Sign out</button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    </header>
+
+    {% if flash %}
+    <div class="flash flash-{{ flash.kind }}">{{ flash.message }}</div>
+    {% endif %}
+
+    {% if secret_reveal %}
+    <div class="secret-panel">
+      <div class="secret-head">
+        <strong>{% if secret_reveal.api_key %}Service key “{{ secret_reveal.name }}”{% else %}Credentials for “{{ secret_reveal.agent_name }}”{% endif %}</strong>
+        <span class="muted">shown once — store {% if secret_reveal.api_key %}it{% else %}them{% endif %} now; only a hash is kept</span>
+      </div>
+      {% if secret_reveal.client_id %}
+      <div class="secret-row"><span class="k">client_id</span>
+        <code id="sr-id">{{ secret_reveal.client_id }}</code>
+        <button class="ghost copy" data-copy="#sr-id">copy</button></div>
+      <div class="secret-row"><span class="k">client_secret</span>
+        <code id="sr-secret">{{ secret_reveal.client_secret }}</code>
+        <button class="ghost copy" data-copy="#sr-secret">copy</button></div>
+      {% endif %}
+      {% if secret_reveal.api_key %}
+      <div class="secret-row"><span class="k">X-Api-Key</span>
+        <code id="sr-key">{{ secret_reveal.api_key }}</code>
+        <button class="ghost copy" data-copy="#sr-key">copy</button></div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% if actor %}{% include "_icon_dialog.html" %}{% endif %}
+<script src="/static/app.js?v={{ asset_v }}"></script>
+</body>
+</html>

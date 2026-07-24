@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block heading %}Audit log{% endblock %}
+{% block content %}
+
+<section class="card">
+  <form class="filters" method="get" action="/ui/audit">
+    <input name="event" value="{{ event_filter }}" placeholder="filter by event, e.g. token.denied">
+    {% if actor.is_admin %}
+    <input name="actor_q" value="{{ actor_filter }}" placeholder="filter by actor email">
+    {% endif %}
+    <button class="btn" type="submit">Filter</button>
+    {% if event_filter or actor_filter %}<a class="btn-link" href="/ui/audit">clear</a>{% endif %}
+  </form>
+
+  {% if events %}
+  <table class="table">
+    <thead><tr><th>When (UTC)</th><th>Event</th><th>Agent</th><th>Actor</th><th>IP</th><th>Detail</th></tr></thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td class="muted small">{{ e.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td><span class="chip chip-{{ e.event.split('.')[0] }}">{{ e.event }}</span></td>
+        <td class="small">
+          {% if e.agent_id %}<a href="/ui/agents/{{ e.agent_id }}">{{ agent_names.get(e.agent_id, e.agent_id[:8]) }}</a>{% else %}—{% endif %}
+        </td>
+        <td class="small">{{ e.actor or '—' }}</td>
+        <td class="muted small">{{ e.ip or '—' }}</td>
+        <td class="small"><code class="small">{{ e.detail | tojson }}</code></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted empty">No matching events.</p>{% endif %}
+
+  {% if next_before or paged %}
+  <div class="filters" style="margin-top: .75rem">
+    {% if paged %}
+    <a class="btn-link" href="/ui/audit?event={{ event_filter | urlencode }}&actor_q={{ actor_filter | urlencode }}">⇤ Newest</a>
+    {% endif %}
+    {% if next_before %}
+    <a class="btn-link" href="/ui/audit?event={{ event_filter | urlencode }}&actor_q={{ actor_filter | urlencode }}&before={{ next_before }}">Older →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}

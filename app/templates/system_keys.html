@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Service keys{% endblock %}
+{% block heading %}Service keys{% endblock %}
+{% block content %}
+
+<section class="card">
+  <div class="card-head">
+    <h2>Service keys</h2>
+    <div class="right">
+      {% if keys %}
+      <span class="filter-count" id="keys-count">{{ keys|length }} keys</span>
+      <span class="list-filter"><span class="mag">&#9906;</span>
+        <input data-filter="#keys-tbody" data-filter-count="#keys-count" data-filter-noun="keys"
+               placeholder="Filter keys&hellip;" aria-label="Filter keys"></span>
+      {% endif %}
+      {% if can_manage %}
+      <button class="btn btn-primary" data-toggle="#create-key">New service key</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <p class="muted small">
+    A service key is a machine credential for the control plane. It carries a
+    role and authenticates with the <code>X-Api-Key</code> header, granting that
+    role's permissions within this tenant — never platform admin. Use it to
+    integrate a product (a monitor, a pipeline) at least privilege instead of
+    sharing the machine admin key.
+  </p>
+
+  {% if can_manage %}
+  <form id="create-key" class="stack hidden" method="post" action="/ui/service-keys">
+    <div class="grid-3">
+      <label>Name <input name="name" required maxlength="64" placeholder="e.g. nightlatch"></label>
+      <label>Role
+        <select name="role" required>
+          {% for r in roles %}<option value="{{ r.name }}">{{ r.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Description <input name="description" placeholder="What integrates with this key"></label>
+    </div>
+    <div><button class="btn btn-primary" type="submit">Create service key</button></div>
+  </form>
+  {% endif %}
+
+  <table class="table">
+    <thead><tr><th>Name</th><th>Role</th><th>Description</th><th>Status</th><th>Last used</th><th>Created</th>{% if can_manage %}<th></th>{% endif %}</tr></thead>
+    <tbody id="keys-tbody">
+      {% for k in keys %}
+      <tr>
+        <td><strong>{{ k.name }}</strong></td>
+        <td><span class="chip">{{ k.role.name if k.role else "—" }}</span></td>
+        <td class="muted">{{ k.description }}</td>
+        <td>
+          {% if k.revoked_at %}<span class="badge">revoked</span>
+          {% else %}<span class="badge badge-ok">active</span>{% endif %}
+        </td>
+        <td class="muted small">{{ k.last_used_at.strftime("%Y-%m-%d %H:%M") if k.last_used_at else "never" }}</td>
+        <td class="muted small">{{ k.created_at.strftime("%Y-%m-%d") }}<br>
+          <span class="muted">by {{ k.created_by }}</span></td>
+        {% if can_manage %}
+        <td class="row-actions">
+          {% if not k.revoked_at %}
+          <form method="post" action="/ui/service-keys/{{ k.id }}/revoke" class="inline">
+            <button class="ghost danger" type="submit"
+              data-confirm="Revoke service key {{ k.name }}? Anything using it loses access immediately.">revoke</button>
+          </form>
+          {% else %}<span class="muted small">—</span>{% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="{{ 7 if can_manage else 6 }}" class="empty">No service keys yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% endblock %}

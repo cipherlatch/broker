@@ -1,0 +1,77 @@
+services:
+  cipherlatch:
+    build: .
+    container_name: cipherlatch
+    ports:
+      - "8400:8000"
+    environment:
+      BROKER_DATABASE_URL: postgresql+psycopg://broker:${POSTGRES_PASSWORD:-broker}@db:5432/broker
+      BROKER_KEYS_DIR: /srv/data/keys
+      BROKER_ADMIN_API_KEY: ${BROKER_ADMIN_API_KEY:?set in .env or GitLab CI variables}
+      BROKER_ISSUER: ${BROKER_ISSUER:-http://localhost:8400}
+      BROKER_DB_AUTO_CREATE: "false"   # schema is managed by Alembic in the entrypoint
+      BROKER_OIDC_ISSUER: ${BROKER_OIDC_ISSUER:-}
+      BROKER_OIDC_CLIENT_ID: ${BROKER_OIDC_CLIENT_ID:-}
+      BROKER_OIDC_CLIENT_SECRET: ${BROKER_OIDC_CLIENT_SECRET:-}
+      BROKER_SESSION_SECRET: ${BROKER_SESSION_SECRET:-}
+      BROKER_JIT_PROVISIONING: ${BROKER_JIT_PROVISIONING:-true}
+      BROKER_ADMIN_EMAILS: ${BROKER_ADMIN_EMAILS:-}
+      BROKER_ADMIN_EMAIL_PINNING: ${BROKER_ADMIN_EMAIL_PINNING:-true}
+      BROKER_UI_ACCENT: ${BROKER_UI_ACCENT:-#6d5efc}
+      BROKER_KEYSTORE: ${BROKER_KEYSTORE:-file}
+      BROKER_VAULT_ADDR: ${BROKER_VAULT_ADDR:-}
+      BROKER_VAULT_TOKEN: ${BROKER_VAULT_TOKEN:-}
+      BROKER_KEY_RETENTION_SECONDS: ${BROKER_KEY_RETENTION_SECONDS:-86400}
+      BROKER_KEY_MAX_AGE_SECONDS: ${BROKER_KEY_MAX_AGE_SECONDS:-0}
+      BROKER_GROUP_ROLE_MAP: ${BROKER_GROUP_ROLE_MAP:-}
+      BROKER_TENANT_DOMAIN_MAP: ${BROKER_TENANT_DOMAIN_MAP:-}
+      BROKER_CREDENTIAL_BACKEND: ${BROKER_CREDENTIAL_BACKEND:-local}
+      BROKER_CREDENTIAL_KEY: ${BROKER_CREDENTIAL_KEY:-}
+      BROKER_VAULT_TRANSIT_MOUNT: ${BROKER_VAULT_TRANSIT_MOUNT:-transit}
+      BROKER_VAULT_TRANSIT_KEY: ${BROKER_VAULT_TRANSIT_KEY:-cipherlatch-credentials}
+      BROKER_LOG_JSON: ${BROKER_LOG_JSON:-false}
+      BROKER_RATE_LIMIT_PER_MINUTE: ${BROKER_RATE_LIMIT_PER_MINUTE:-120}
+      BROKER_DPOP_ENABLED: ${BROKER_DPOP_ENABLED:-true}
+      # MCP authorization-server role (authorization_code + PKCE + CIMD).
+      BROKER_MCP_AS_ENABLED: ${BROKER_MCP_AS_ENABLED:-false}
+      # Workload identity federation: allowlisted OIDC issuers (e.g. this
+      # GitLab) whose tokens may authenticate secretless agents.
+      BROKER_FEDERATED_ISSUERS: ${BROKER_FEDERATED_ISSUERS:-}
+      TZ: ${TZ:-America/New_York}
+    volumes:
+      # DATA_DIR from .env; defaults to ./data for local use
+      - ${DATA_DIR:-./data}/keys:/srv/data/keys
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - default
+      - edge
+
+  db:
+    image: postgres:16-alpine
+    container_name: cipherlatch-db
+    environment:
+      POSTGRES_USER: broker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-broker}
+      POSTGRES_DB: broker
+      TZ: ${TZ:-America/New_York}
+    volumes:
+      - ${DATA_DIR:-./data}/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U broker"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    # default network only: the database is reachable from the broker but
+    # not from other containers on the shared edge network.
+    networks:
+      - default
+
+networks:
+  default:
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:-edge}

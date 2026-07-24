@@ -1,0 +1,118 @@
+# Cipherlatch Helm chart values.
+#
+# The app is stateless by construction (signed-cookie sessions, DB-backed
+# lockouts, migrations self-apply under a Postgres advisory lock), so
+# replicas need only two shared things: the Postgres database and the
+# signing keystore. Use the `vault` (or a cloud-KMS) keystore for more than
+# one replica; the `file` keystore is single-node and needs the PVC below.
+
+replicaCount: 2
+
+image:
+  repository: cipherlatch        # your registry path, e.g. registry.example.com/cipherlatch
+  tag: ""                 # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+broker:
+  # Public URL of this broker — token `iss`, OIDC redirects, DPoP htu.
+  issuer: https://cipherlatch.example.com
+  # Upstream OIDC IdP for the human plane (Authentik, Keycloak, Okta, ...).
+  oidcIssuer: ""
+  jitProvisioning: true
+  adminEmails: ""
+  adminEmailPinning: true
+  groupRoleMap: ""
+  tenantDomainMap: ""
+  logJson: true
+  rateLimitPerMinute: 120
+  dpopEnabled: true
+  # Any additional BROKER_* environment (non-secret), e.g.
+  #   BROKER_UI_ACCENT: "#6d5efc"
+  #   BROKER_FEDERATED_ISSUERS: "https://spire.example.com"
+  #   BROKER_GATEWAY_POLICY_URL: "http://opa:8181/v1/data/cipherlatch/gw"
+  extraEnv: {}
+
+# Signing keystore. `vault` is the clustering default; `file` requires
+# replicaCount: 1 and persistence.enabled: true. Enterprise backends
+# (pkcs11|awskms|gcpkms|azurekv|jks) need the cipherlatch-enterprise package and
+# its SDK extra baked into your image, plus credentials via extraEnv /
+# workload identity.
+keystore:
+  type: vault
+  vault:
+    addr: ""              # e.g. http://vault.vault:8200
+    mount: secret
+    path: cipherlatch/signing-key
+    # Vault token comes from the Secret (key BROKER_VAULT_TOKEN).
+
+# Only used with keystore.type=file (single replica).
+persistence:
+  enabled: false
+  size: 1Gi
+  storageClass: ""
+  accessModes: [ReadWriteOnce]
+
+# Sensitive configuration. Either set values here (the chart renders its own
+# Secret) or point existingSecret at one you manage (e.g. via
+# external-secrets / sealed-secrets) containing the same keys:
+#   BROKER_DATABASE_URL      postgresql+psycopg://user:pass@host:5432/broker
+#   BROKER_ADMIN_API_KEY     machine/bootstrap admin key
+#   BROKER_SESSION_SECRET    session-cookie HMAC key
+#   BROKER_CREDENTIAL_KEY    credential encryption KEK (empty = brokering off)
+#   BROKER_OIDC_CLIENT_ID    \ human-plane OIDC client
+#   BROKER_OIDC_CLIENT_SECRET/
+#   BROKER_VAULT_TOKEN       only with keystore.type=vault
+secrets:
+  existingSecret: ""
+  databaseUrl: ""
+  adminApiKey: ""
+  sessionSecret: ""
+  credentialKey: ""
+  oidcClientId: ""
+  oidcClientSecret: ""
+  vaultToken: ""
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  # host defaults to the hostname of broker.issuer
+  host: ""
+  tls:
+    enabled: false
+    secretName: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 512Mi
+
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false   # entrypoint writes ./data/keys with file keystore
+  capabilities:
+    drop: [ALL]
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

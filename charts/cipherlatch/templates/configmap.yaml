@@ -1,0 +1,43 @@
+{{- if and (eq .Values.keystore.type "file") (gt (int .Values.replicaCount) 1) }}
+{{- fail "keystore.type=file is single-node: set replicaCount=1 (and persistence.enabled=true), or use the vault / cloud-KMS keystore for replicas" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cipherlatch.fullname" . }}
+  labels:
+    {{- include "cipherlatch.labels" . | nindent 4 }}
+data:
+  BROKER_ISSUER: {{ .Values.broker.issuer | quote }}
+  BROKER_DB_AUTO_CREATE: "false"
+  BROKER_LOG_JSON: {{ .Values.broker.logJson | quote }}
+  BROKER_JIT_PROVISIONING: {{ .Values.broker.jitProvisioning | quote }}
+  BROKER_RATE_LIMIT_PER_MINUTE: {{ .Values.broker.rateLimitPerMinute | quote }}
+  BROKER_DPOP_ENABLED: {{ .Values.broker.dpopEnabled | quote }}
+  BROKER_KEYSTORE: {{ .Values.keystore.type | quote }}
+  {{- with .Values.broker.oidcIssuer }}
+  BROKER_OIDC_ISSUER: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.broker.adminEmails }}
+  BROKER_ADMIN_EMAILS: {{ . | quote }}
+  {{- end }}
+  {{- if not .Values.broker.adminEmailPinning }}
+  BROKER_ADMIN_EMAIL_PINNING: "false"
+  {{- end }}
+  {{- with .Values.broker.groupRoleMap }}
+  BROKER_GROUP_ROLE_MAP: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.broker.tenantDomainMap }}
+  BROKER_TENANT_DOMAIN_MAP: {{ . | quote }}
+  {{- end }}
+  {{- if eq .Values.keystore.type "vault" }}
+  BROKER_VAULT_ADDR: {{ required "keystore.vault.addr is required with keystore.type=vault" .Values.keystore.vault.addr | quote }}
+  BROKER_VAULT_MOUNT: {{ .Values.keystore.vault.mount | quote }}
+  BROKER_VAULT_PATH: {{ .Values.keystore.vault.path | quote }}
+  {{- end }}
+  {{- if eq .Values.keystore.type "file" }}
+  BROKER_KEYS_DIR: /srv/data/keys
+  {{- end }}
+  {{- range $k, $v := .Values.broker.extraEnv }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

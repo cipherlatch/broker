@@ -1,0 +1,51 @@
+{# Shared icon dialog — one per page, opened by any button with class
+   `icon-open`. Two modes, chosen by the opener's data attributes:
+     data-icon-post="/ui/routes/<id>/icon"  edit mode: Save POSTs immediately
+     data-icon-stage="#create-route"        stage mode: Save fills the form's
+                                            hidden `icon` / `icon_upload`
+                                            fields (used by create forms)
+   Optional: data-icon-for="label", data-icon-current="emoji or empty",
+   data-icon-detect="1" (routes: offer upstream favicon auto-detect). #}
+<template id="icon-dialog-tpl">
+  <div class="modal-backdrop icon-backdrop">
+    <div class="modal icon-dialog" role="dialog" aria-modal="true" aria-label="Choose an icon">
+      <h3>Icon <span class="icon-for muted"></span></h3>
+      <div class="icon-tabs" role="tablist">
+        <button type="button" role="tab" data-pane="url" aria-selected="true">From URL</button>
+        <button type="button" role="tab" data-pane="upload" aria-selected="false">Upload</button>
+        <button type="button" role="tab" data-pane="emoji" aria-selected="false">Emoji</button>
+      </div>
+      <div class="icon-pane" data-pane="url">
+        <label>Image URL
+          <input type="text" name="url" placeholder="https://example.com/favicon.ico" spellcheck="false"></label>
+        <p class="muted small">Fetched and stored server-side on save — your browser never loads the
+          URL. Small raster images only (max 50&nbsp;KB); SVG is not accepted.</p>
+        <button type="button" class="ghost icon-detect hidden">Auto-detect from the upstream's favicon</button>
+      </div>
+      <div class="icon-pane hidden" data-pane="upload">
+        <input type="file" class="icon-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+        <div class="icon-upload-row">
+          <button type="button" class="ghost icon-browse">Choose an image…</button>
+          <span class="icon-upload-info muted small"></span>
+        </div>
+        <p class="muted small">PNG · JPEG · WebP · GIF — resized to 64&nbsp;px in your browser,
+          then stored server-side with the same validation as fetched favicons.</p>
+      </div>
+      <div class="icon-pane hidden" data-pane="emoji">
+        <label>Emoji
+          <input type="text" name="emoji" maxlength="8" autocomplete="off"></label>
+        <div class="emoji-quick"></div>
+      </div>
+      <div class="icon-preview-row">
+        <span class="icon-box"></span>
+        <span class="icon-note muted small"></span>
+      </div>
+      <div class="modal-actions icon-actions">
+        <button type="button" class="ghost danger icon-remove">Remove icon</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn icon-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary icon-save">Save icon</button>
+      </div>
+    </div>
+  </div>
+</template>

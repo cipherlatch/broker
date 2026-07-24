@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Cipherlatch</title>
+  <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
+  <!-- Login uses a fixed, muted accent regardless of the server default or a
+       returning user's saved accent (pre-auth: one calm brand colour). -->
+  <style>:root { --accent: #3D3C49; }</style>
+  <script>
+    (function () {
+      const t = localStorage.getItem("cipherlatch-theme");
+      if (t) document.documentElement.dataset.theme = t;
+    })();
+  </script>
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="brand login-brand">
+      <span class="brand-mark"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="3.5" y="3.5" width="25" height="25" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M7.5 16 H13" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M15.5 16 H18.5" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="22.5" cy="16" r="2.7" fill="currentColor"/>
+      </svg></span>
+      <div>
+        <div class="brand-name">Cipherlatch</div>
+        <div class="brand-sub">Broker for Agentic Access Management</div>
+      </div>
+    </div>
+    <p class="muted">Identity, scoped credentials, and audit for AI agents.</p>
+    {% if oidc_enabled %}
+    <a class="btn btn-primary btn-block" href="/auth/login">Sign in with SSO</a>
+    {% else %}
+    <div class="flash flash-warn">
+      OIDC is not configured. Set <code>BROKER_OIDC_ISSUER</code>,
+      <code>BROKER_OIDC_CLIENT_ID</code> and <code>BROKER_OIDC_CLIENT_SECRET</code>.
+      The admin API remains available with <code>X-Admin-Key</code>.
+    </div>
+    {% endif %}
+  </div>
+<script src="/static/app.js?v={{ asset_v }}"></script>
+</body>
+</html>

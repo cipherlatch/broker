@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Agents{% endblock %}
+{% block heading %}Agents{% endblock %}
+{% block content %}
+
+<section class="card">
+  <div class="card-head">
+    <h2>{{ 'All agents' if actor.has('agents:read:all') else 'Your agents' }}</h2>
+    <div class="right">
+      {% if agents %}
+      <span class="filter-count" id="agents-count">{{ agents|length }} agents</span>
+      <span class="list-filter"><span class="mag">&#9906;</span>
+        <input data-filter="#agents-tbody" data-filter-count="#agents-count" data-filter-noun="agents"
+               placeholder="Filter agents&hellip;" aria-label="Filter agents"></span>
+      {% endif %}
+      {% if actor.has('agents:create') or actor.has('agents:create:all') %}
+      <button class="btn btn-primary" data-toggle="#create-agent">New agent</button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if actor.has('agents:create') or actor.has('agents:create:all') %}
+  <form id="create-agent" class="stack hidden" method="post" action="/ui/agents">
+    <div class="grid-2">
+      <label>Name <input name="name" required maxlength="255" placeholder="deploy-bot"></label>
+      <label>Scopes <input name="scopes" placeholder="api:read api:write"></label>
+    </div>
+    <div class="grid-2">
+      <label>Description <input name="description" placeholder="What this agent does"></label>
+      <label>Resources <input name="resources" placeholder="https://mcp.example.com (optional)"></label>
+    </div>
+    <div class="icon-field">
+      <span class="lbl">Icon</span>
+      <input type="hidden" name="icon">
+      <input type="hidden" name="icon_upload">
+      <span class="icon-stage-preview muted small">optional</span>
+      <button type="button" class="ghost icon-open" data-icon-stage="#create-agent"
+              data-icon-for="new agent">Choose icon…</button>
+    </div>
+    {% if actor.has('agents:create:all') %}
+    <label>Owner email <input name="owner_email" type="email"
+        placeholder="defaults to you ({{ actor.principal.email }})"></label>
+    {% endif %}
+    <div class="grid-2">
+      <label>Federated issuer <span class="muted small">(optional · secretless)</span>
+        <input name="federated_issuer" placeholder="https://gitlab.example.com"></label>
+      <label>Federated subject <span class="muted small">(required with issuer)</span>
+        <input name="federated_subject" placeholder="project_path:group/repo:ref_type:branch:ref:main"></label>
+    </div>
+    <p class="muted small">Set both to bind the agent to a platform JWT (GitLab CI,
+      GitHub Actions, SPIFFE). No client secret is issued — the agent authenticates
+      with its issuer's token. The issuer must be allow-listed in
+      <code>BROKER_FEDERATED_ISSUERS</code>.</p>
+    <div><button class="btn btn-primary" type="submit">Create agent</button></div>
+  </form>
+  {% endif %}
+
+  {% if agents %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th><th>Client ID</th><th>Scopes</th>
+        {% if actor.has('agents:read:all') %}<th>Owner</th>{% endif %}
+        <th>Status</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="agents-tbody">
+      {% for a in agents %}
+      <tr>
+        <td>{% if a.icon %}<span class="route-icon">{% if a.icon.startswith('data:') %}<img src="{{ a.icon }}" alt="" width="16" height="16">{% else %}{{ a.icon }}{% endif %}</span> {% endif %}<a class="rowname" href="/ui/agents/{{ a.id }}"><strong>{{ a.name }}</strong></a>
+            {% if a.description %}<div class="muted small">{{ a.description }}</div>{% endif %}</td>
+        <td><code class="small">{{ a.client_id }}</code></td>
+        <td>{% for s in a.allowed_scopes %}<span class="chip">{{ s }}</span>{% endfor %}</td>
+        {% if actor.has('agents:read:all') %}<td class="muted">{{ a.owner.email }}</td>{% endif %}
+        <td>{% if a.active %}<span class="badge badge-ok">active</span>
+            {% else %}<span class="badge badge-warn">revoked</span>{% endif %}</td>
+        <td><a class="btn-link" href="/ui/agents/{{ a.id }}">manage →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted empty">No agents yet. Create one to mint its credentials.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=8
+# Enterprise keystore backends (HSM/cloud-KMS/JKS) live in the separate
+# cipherlatch-enterprise package and are tested there, not here.

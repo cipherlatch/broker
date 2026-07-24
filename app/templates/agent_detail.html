@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}{{ agent.name }}{% endblock %}
+{% block heading %}
+  <a class="crumb" href="/ui/agents">Agents</a> / {{ agent.name }}
+  {% if agent.active %}<span class="badge badge-ok">active</span>
+  {% else %}<span class="badge badge-warn">revoked</span>{% endif %}
+{% endblock %}
+{% block content %}
+
+<div class="grid-2 align-start">
+  <section class="card">
+    <h2>Configuration</h2>
+    <dl class="meta">
+      <dt>Client ID</dt><dd><code id="cid">{{ agent.client_id }}</code> <button class="ghost copy" data-copy="#cid" title="Copy client ID">copy</button></dd>
+      <dt>Owner</dt><dd>{{ agent.owner.email }}</dd>
+      <dt>Created</dt><dd>{{ agent.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</dd>
+      {% if agent.revoked_at %}<dt>Revoked</dt><dd>{{ agent.revoked_at.strftime('%Y-%m-%d %H:%M') }} UTC</dd>{% endif %}
+    </dl>
+
+    <p class="muted small">Authenticate as this agent (fill in the secret shown at create/rotate):</p>
+    <div class="secret-row"><code id="curl-cmd" class="small" data-curl-cid="{{ agent.client_id }}"></code>
+      <button class="ghost copy" data-copy="#curl-cmd">copy</button></div>
+    <div class="secret-row"><span class="k">verify via</span>
+      <code id="jwks-url" class="small" data-jwks-url></code>
+      <button class="ghost copy" data-copy="#jwks-url">copy</button></div>
+
+    {% if can_update %}
+    <form class="stack" method="post" action="/ui/agents/{{ agent.id }}/update">
+      <label>Description
+        <input name="description" value="{{ agent.description }}"></label>
+      <label>Scopes <span class="muted small">(space-separated)</span>
+        <input name="scopes" value="{{ (agent.allowed_scopes or []) | join(' ') }}"></label>
+      <label>Resources <span class="muted small">(RFC 8707 audiences; empty = any)</span>
+        <input name="resources" value="{{ (agent.allowed_resources or []) | join(' ') }}"></label>
+      <label>Federated issuer <span class="muted small">(secretless · clear both to unbind)</span>
+        <input name="federated_issuer" value="{{ agent.federated_issuer or '' }}"
+               placeholder="https://gitlab.example.com"></label>
+      <label>Federated subject
+        <input name="federated_subject" value="{{ agent.federated_subject or '' }}"
+               placeholder="project_path:group/repo:ref_type:branch:ref:main"></label>
+      <div><button class="btn btn-primary" type="submit">Save changes</button></div>
+    </form>
+    <div class="icon-field" style="margin-top:12px">
+      <span class="lbl">Icon</span>
+      {% if agent.icon %}<span class="icon-current">{% if agent.icon.startswith('data:') %}<img src="{{ agent.icon }}" alt="" width="18" height="18">{% else %}{{ agent.icon }}{% endif %}</span>
+      {% else %}<span class="muted small">none</span>{% endif %}
+      <button type="button" class="ghost icon-open" data-icon-post="/ui/agents/{{ agent.id }}/icon"
+              data-icon-for="{{ agent.name }}"
+              data-icon-current="{{ agent.icon if not agent.icon.startswith('data:') else '' }}"
+              data-icon-has="{{ '1' if agent.icon }}">change icon…</button>
+    </div>
+    {% else %}
+    <dl class="meta">
+      <dt>Scopes</dt><dd>{% for s in agent.allowed_scopes %}<span class="chip">{{ s }}</span>{% else %}—{% endfor %}</dd>
+      <dt>Resources</dt><dd>{% for r in agent.allowed_resources %}<span class="chip">{{ r }}</span>{% else %}<span class="muted">any</span>{% endfor %}</dd>
+      {% if agent.federated_issuer %}
+      <dt>Federation</dt><dd><span class="badge badge-ok">secretless</span>
+        <code class="small">{{ agent.federated_issuer }}</code>
+        <span class="muted small">/ {{ agent.federated_subject }}</span></dd>
+      {% endif %}
+    </dl>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Credentials</h2>
+    {% if can_rotate %}
+    <p class="muted small">Rotation invalidates the current secret immediately and
+      clears any lockout. The new secret is shown exactly once.</p>
+    <form method="post" action="/ui/agents/{{ agent.id }}/rotate">
+      <button class="btn" type="submit" data-confirm="Rotate secret for {{ agent.name }}? The old secret stops working immediately.">Rotate secret</button>
+    </form>
+    {% endif %}
+    {% if can_revoke and agent.active %}
+    <hr class="rule">
+    <p class="muted small">Revoking stops this agent from minting tokens. It can be
+      reactivated later (previously issued tokens stay dead).</p>
+    <form method="post" action="/ui/agents/{{ agent.id }}/revoke">
+      <button class="btn btn-danger" type="submit" data-confirm="Revoke {{ agent.name }}? It stops minting tokens until unrevoked.">Revoke agent</button>
+    </form>
+    {% endif %}
+    {% if can_revoke and not agent.active %}
+    <hr class="rule">
+    <p class="muted small">This agent is revoked. Unrevoke reactivates it (tokens issued
+      before the revocation stay dead). Archiving removes it — the name becomes
+      reusable and a graveyard tombstone keeps its audit trail resolvable.</p>
+    <div class="row-actions">
+      <form method="post" action="/ui/agents/{{ agent.id }}/unrevoke" class="inline">
+        <button class="btn" type="submit" data-confirm="Unrevoke {{ agent.name }}? It can mint tokens again.">Unrevoke agent</button>
+      </form>
+      <form method="post" action="/ui/agents/{{ agent.id }}/archive" class="inline">
+        <button class="btn btn-danger" type="submit"
+          data-confirm="Archive {{ agent.name }}? The agent is removed (name freed); its audit trail remains via the graveyard.">Archive agent</button>
+      </form>
+    </div>
+    {% endif %}
+    {% if not can_rotate and not can_revoke %}
+    <p class="muted small">Read-only access.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card">
+  <h2>Access grants</h2>
+  <p class="muted small">What this agent can obtain by RFC 8693 token exchange and
+    reach through the gateway. Manage grants here or from each credential/route; every use is audited.</p>
+
+  <h3>Credentials <span class="muted small">(token exchange)</span></h3>
+  <div class="grant-chips">
+    {% for c in granted_creds %}
+    <span class="chip">{% if c.icon %}<span class="route-icon">{% if c.icon.startswith('data:') %}<img src="{{ c.icon }}" alt="" width="14" height="14">{% else %}{{ c.icon }}{% endif %}</span> {% endif %}{{ c.name }}
+      {% if can_grant_cred %}
+      <form class="inline" method="post" action="/ui/agents/{{ agent.id }}/revoke-credential">
+        <input type="hidden" name="credential_id" value="{{ c.id }}">
+        <button class="ghost danger chip-x" type="submit" title="revoke grant"
+          data-confirm="Revoke {{ agent.name }}'s access to {{ c.name }}?">&times;</button>
+      </form>
+      {% endif %}
+    </span>
+    {% else %}<span class="muted small">none</span>{% endfor %}
+  </div>
+  {% if can_grant_cred and grantable_creds %}
+  <form class="inline grant-form" method="post" action="/ui/agents/{{ agent.id }}/grant-credential">
+    <select name="credential_id" required>
+      <option value="" disabled selected>grant credential&hellip;</option>
+      {% for c in grantable_creds %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+    </select>
+    <button class="ghost" type="submit">grant</button>
+  </form>
+  {% endif %}
+
+  <h3>Gateway routes</h3>
+  <div class="grant-chips">
+    {% for r in granted_routes %}
+    <span class="chip">/gw/{{ r.slug }}
+      {% if can_grant_route %}
+      <form class="inline" method="post" action="/ui/agents/{{ agent.id }}/revoke-route">
+        <input type="hidden" name="route_id" value="{{ r.id }}">
+        <button class="ghost danger chip-x" type="submit" title="revoke grant"
+          data-confirm="Revoke {{ agent.name }}'s access to /gw/{{ r.slug }}?">&times;</button>
+      </form>
+      {% endif %}
+    </span>
+    {% else %}<span class="muted small">none</span>{% endfor %}
+  </div>
+  {% if can_grant_route and grantable_routes %}
+  <form class="inline grant-form" method="post" action="/ui/agents/{{ agent.id }}/grant-route">
+    <select name="route_id" required>
+      <option value="" disabled selected>grant route&hellip;</option>
+      {% for r in grantable_routes %}<option value="{{ r.id }}">/gw/{{ r.slug }}</option>{% endfor %}
+    </select>
+    <button class="ghost" type="submit">grant</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Recent activity</h2>
+  {% if events %}
+  <table class="table">
+    <thead><tr><th>When (UTC)</th><th>Event</th><th>Actor</th><th>IP</th><th>Detail</th></tr></thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td class="muted small">{{ e.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td><span class="chip chip-{{ e.event.split('.')[0] }}">{{ e.event }}</span></td>
+        <td class="small">{{ e.actor }}</td>
+        <td class="muted small">{{ e.ip }}</td>
+        <td class="small"><code class="small">{{ e.detail | tojson }}</code></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted empty">No events yet.</p>{% endif %}
+</section>
+
+{% endblock %}

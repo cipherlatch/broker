@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Policies{% endblock %}
+{% block heading %}Contextual policies{% endblock %}
+{% block content %}
+
+<section class="card">
+  <div class="card-head">
+    <h2>{{ 'All policies' if actor.has('policies:read:all') else 'Your policies' }}</h2>
+    <div class="right">
+      {% if policies %}
+      <span class="filter-count" id="policies-count">{{ policies|length }} policies</span>
+      <span class="list-filter"><span class="mag">&#9906;</span>
+        <input data-filter="#policies-tbody" data-filter-count="#policies-count" data-filter-noun="policies"
+               placeholder="Filter policies&hellip;" aria-label="Filter policies"></span>
+      {% endif %}
+      {% if can_create %}
+      <button class="btn btn-primary" data-toggle="#create-policy">New policy</button>
+      {% endif %}
+    </div>
+  </div>
+  <p class="muted small">Curated contextual controls — config, not a rule language. Attached policies
+    are <strong>additive vetoes</strong>: built-in route checks, then these, then the external
+    OPA/Cedar hook (if configured); any layer can deny, fail-closed. A policy is a <em>control</em> —
+    attaching and editing are governed by their own <code>policies:*</code> permissions, so the party
+    subject to a policy can't weaken it.</p>
+
+  {% if can_create %}
+  <form id="create-policy" class="stack hidden" method="post" action="/ui/policies">
+    <div class="grid-3">
+      <label>Name <input name="name" required maxlength="255" placeholder="prod-change-freeze"></label>
+      <label>Type
+        <select name="type" id="policy-type">
+          <option value="change_freeze">Change freeze — deny everything in a window</option>
+          <option value="business_hours">Business hours — allow only inside a weekly window</option>
+          <option value="cidr_fence">CIDR fence — allow only listed client networks</option>
+        </select></label>
+      <label>Description <input name="description" placeholder="optional"></label>
+    </div>
+    <label>Parameters (JSON)
+      <textarea name="params" data-code="json" id="policy-params"
+        placeholder='{ "start": "2026-07-20T00:00:00+00:00", "end": "2026-07-22T00:00:00+00:00", "message": "release freeze" }'></textarea></label>
+    <p class="muted small" id="policy-params-hint">
+      change_freeze: <code>{"start": ISO-datetime, "end": ISO-datetime, "message"?}</code> ·
+      business_hours: <code>{"days": [0-6, Mon=0], "start": "08:00", "end": "18:00", "timezone": "America/New_York"}</code> ·
+      cidr_fence: <code>{"allow": ["192.0.2.0/24", "100.64.0.0/10"]}</code></p>
+    <div><button class="btn btn-primary" type="submit">Create policy</button></div>
+  </form>
+  {% endif %}
+
+  {% if policies %}
+  <table class="table">
+    <thead><tr><th>Policy</th><th>Type</th><th>Parameters</th><th>Attached to</th>
+      {% if actor.has('policies:read:all') %}<th>Owner</th>{% endif %}
+      <th>Status</th>{% if can_apply or can_update %}<th></th>{% endif %}</tr></thead>
+    <tbody id="policies-tbody">
+      {% for p in policies %}
+      <tr>
+        <td><strong>{{ p.name }}</strong>
+          {% if p.description %}<div class="muted small">{{ p.description }}</div>{% endif %}</td>
+        <td><span class="chip chip-token">{{ p.type }}</span></td>
+        <td class="small"><code class="small">{{ p.params | tojson }}</code></td>
+        <td>
+          {% for a in p.attachments %}
+          <span class="chip">{{ attachment_labels.get(a.id, a.target_id) }}
+            {% if can_apply %}
+            <form class="inline" method="post" action="/ui/policies/{{ p.id }}/detach">
+              <input type="hidden" name="target_type" value="{{ a.target_type }}">
+              <input type="hidden" name="target_id" value="{{ a.target_id }}">
+              <button class="ghost danger chip-x" type="submit" title="detach"
+                data-confirm="Detach {{ p.name }} from {{ attachment_labels.get(a.id, a.target_id) }}?">&times;</button>
+            </form>
+            {% endif %}
+          </span>
+          {% else %}<span class="muted small">nothing (inert)</span>{% endfor %}
+        </td>
+        {% if actor.has('policies:read:all') %}<td class="muted">{{ p.owner.email }}</td>{% endif %}
+        <td>{% if p.active %}<span class="badge badge-ok">active</span>
+            {% else %}<span class="badge badge-warn">disabled</span>{% endif %}</td>
+        {% if can_apply or can_update %}
+        <td class="row-actions">
+          {% if can_apply %}
+          <form class="inline grant-form" method="post" action="/ui/policies/{{ p.id }}/attach">
+            <select name="target" required>
+              <option value="" disabled selected>attach to&hellip;</option>
+              {% for r in routes %}<option value="route:{{ r.id }}">/gw/{{ r.slug }}</option>{% endfor %}
+              {% for a in agents if a.active %}<option value="agent:{{ a.id }}">{{ a.name }}</option>{% endfor %}
+            </select>
+            <button class="ghost" type="submit">attach</button>
+          </form>
+          {% endif %}
+          {% if can_update %}
+          <button class="ghost" data-toggle="#edit-{{ p.id }}">edit</button>
+          <form method="post" action="/ui/policies/{{ p.id }}/delete" class="inline">
+            <button class="ghost danger" type="submit"
+              data-confirm="Delete policy {{ p.name }}? Its attachments are removed and stop enforcing.">delete</button>
+          </form>
+          {% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% if can_update %}
+      <tr id="edit-{{ p.id }}" class="hidden edit-row">
+        <td colspan="7">
+          <form class="stack" method="post" action="/ui/policies/{{ p.id }}/update">
+            <div class="grid-2">
+              <label>Description <input name="description" value="{{ p.description }}"></label>
+              <label>Status
+                <select name="active">
+                  <option value="true" {{ 'selected' if p.active }}>active</option>
+                  <option value="false" {{ 'selected' if not p.active }}>disabled</option>
+                </select></label>
+            </div>
+            <label>Parameters (JSON) <span class="muted small">({{ p.type }})</span>
+              <textarea name="params" data-code="json">{{ p.params | tojson }}</textarea></label>
+            <div><button class="btn btn-primary" type="submit">Save policy</button></div>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted empty">No policies yet. Create one — it enforces nothing until attached to a route or agent.</p>{% endif %}
+</section>
+
+{% endblock %}

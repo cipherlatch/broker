@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Authorization error · Cipherlatch</title>
+  <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
+  <style>:root { --accent: {{ accent }}; }</style>
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="brand login-brand">
+      <span class="brand-mark"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="3.5" y="3.5" width="25" height="25" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M7.5 16 H13" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M15.5 16 H18.5" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="22.5" cy="16" r="2.7" fill="currentColor"/>
+      </svg></span>
+      <div>
+        <div class="brand-name">Cipherlatch</div>
+        <div class="brand-sub">Authorization request</div>
+      </div>
+    </div>
+    <div class="flash flash-warn">{{ message }}</div>
+    <p class="muted">This request could not be completed. If you were sent here
+       by an application, report this to whoever operates it.</p>
+  </div>
+</body>
+</html>

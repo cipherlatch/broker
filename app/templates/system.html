@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}System{% endblock %}
+{% block heading %}System{% endblock %}
+{% block content %}
+
+<p class="muted small" style="margin:0">Read-only architecture overview — names, types, and key IDs
+  only; key material and secret values are never shown. Values come from the running configuration.</p>
+
+<div class="sys-grid">
+
+  <section class="card">
+    <h2>Signing keystore</h2>
+    <dl class="meta">
+      <dt>Backend</dt>
+      <dd><code>{{ info.keystore.backend }}</code>
+        {% if info.keystore.enterprise_backend %}<span class="badge badge-accent">enterprise</span>{% endif %}
+        {% if info.keystore.healthy %}<span class="badge badge-ok">healthy</span>
+        {% else %}<span class="badge badge-warn">unavailable</span>{% endif %}</dd>
+      <dt>Active kid</dt><dd><code>{{ info.keystore.active_kid or '—' }}</code></dd>
+      {% if info.keystore.active_age is not none %}
+      <dt>Active key age</dt><dd>{{ (info.keystore.active_age // 86400) }} d {{ (info.keystore.active_age % 86400) // 3600 }} h</dd>
+      {% endif %}
+      <dt>Keys in ring</dt><dd>{{ info.keystore.key_count }}</dd>
+      <dt>Named keyrings</dt><dd>{{ 'supported' if info.keystore.named_keyrings else 'default ring only (externally managed)' }}</dd>
+      <dt>Retired-key retention</dt><dd>{{ info.keystore.retention_seconds // 3600 }} h</dd>
+      <dt>Startup auto-rotate</dt><dd>{{ (info.keystore.auto_rotate_seconds // 3600) ~ ' h' if info.keystore.auto_rotate_seconds else 'off' }}</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Credential encryption</h2>
+    <dl class="meta">
+      <dt>Backend</dt>
+      <dd><code>{{ info.credentials.backend }}</code>
+        {% if info.credentials.ready %}<span class="badge badge-ok">configured</span>
+        {% else %}<span class="badge badge-warn">not configured</span>{% endif %}</dd>
+      <dt>Scheme</dt><dd>{{ info.credentials.scheme }}</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Security posture</h2>
+    <dl class="meta">
+      <dt>DPoP</dt><dd>{{ 'enabled · single-use proofs' if info.security.dpop else 'disabled' }}</dd>
+      <dt>FIPS mode</dt><dd>{{ 'on' if info.security.fips else 'off' }}</dd>
+      <dt>Admin API keys</dt>
+      <dd>{% if info.security.admin_keys %}{{ info.security.admin_keys }} configured
+          {% else %}<span class="badge badge-ok">keyless</span> <span class="muted small">(admin via SSO; recovery via host CLI)</span>{% endif %}</dd>
+      <dt>Bootstrap email pinning</dt><dd>{{ 'on' if info.security.email_pinning else 'off' }}</dd>
+      <dt>Proxy trust</dt><dd>{{ (info.security.proxy_hops ~ ' hop(s)') if info.security.proxy_hops else 'direct (no proxy)' }}</dd>
+      <dt>UI session</dt><dd>{{ info.security.session_hours }} h</dd>
+      <dt>Client lockout</dt><dd>{{ info.security.lockout }}</dd>
+      <dt>Token TTL</dt><dd>{{ info.security.token_ttl }} s (max {{ info.security.token_ttl_max }} s)</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Gateway</h2>
+    <dl class="meta">
+      <dt>Body cap</dt><dd>{{ info.gateway.body_cap_mb }} MB <span class="muted small">(git routes stream uncapped)</span></dd>
+      <dt>Upstream timeout</dt><dd>{{ info.gateway.timeout_seconds }} s</dd>
+      <dt>Policy hook</dt>
+      <dd>{% if info.gateway.policy_hook %}configured · {{ 'fail-open' if info.gateway.policy_fail_open else 'fail-closed' }}
+          {% else %}none{% endif %}</dd>
+      <dt>IP rate limit</dt><dd>{{ info.gateway.ip_rate_per_minute }} / min</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Identity</h2>
+    <dl class="meta">
+      <dt>OIDC issuer</dt><dd>{% if info.identity.oidc_issuer %}<code>{{ info.identity.oidc_issuer }}</code>{% else %}<span class="badge badge-warn">not configured</span>{% endif %}</dd>
+      <dt>JIT provisioning</dt><dd>{{ 'on' if info.identity.jit else 'off' }} · default role <code>{{ info.identity.default_role }}</code></dd>
+      <dt>Admin emails</dt><dd>{{ info.identity.admin_emails }}</dd>
+      <dt>SCIM 2.0</dt><dd>available · per-tenant bearer token</dd>
+      <dt>Federated issuers</dt><dd>{{ info.identity.federated_issuers }}</dd>
+      <dt>Tenant domain map</dt><dd>{{ info.identity.tenant_domains }} domain(s)</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Enterprise plugin</h2>
+    {% if info.enterprise.installed %}
+    <dl class="meta">
+      <dt>Installed</dt><dd><span class="badge badge-ok">yes</span>{% if info.enterprise.version %} · v{{ info.enterprise.version }}{% endif %}</dd>
+      <dt>Provides keystores</dt>
+      <dd>{% for k in info.enterprise.keystores %}<span class="chip">{{ k }}</span>{% else %}—{% endfor %}</dd>
+    </dl>
+    {% else %}
+    <p class="muted small">Not installed. The open-core build covers everything except
+      enterprise key custody (HSM / cloud-KMS / JKS keystores).</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Runtime</h2>
+    <dl class="meta">
+      <dt>Issuer</dt><dd><code>{{ info.runtime.issuer }}</code></dd>
+      <dt>Audience</dt><dd><code>{{ info.runtime.audience }}</code></dd>
+      <dt>Database</dt><dd>{{ info.runtime.database }}</dd>
+      <dt>Metrics</dt><dd>{{ 'enabled (/metrics)' if info.runtime.metrics else 'disabled' }}</dd>
+      <dt>Logging</dt><dd>{{ info.runtime.log_format }} · {{ info.runtime.log_level }}</dd>
+    </dl>
+  </section>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,27 @@
+Cipherlatch {{ .Chart.AppVersion }} deployed as {{ include "cipherlatch.fullname" . }}.
+
+  Issuer:    {{ .Values.broker.issuer }}
+  Replicas:  {{ .Values.replicaCount }}  (keystore: {{ .Values.keystore.type }})
+  Service:   {{ include "cipherlatch.fullname" . }}:{{ .Values.service.port }}
+{{- if .Values.ingress.enabled }}
+  Ingress:   https://{{ include "cipherlatch.ingressHost" . }}
+{{- end }}
+
+Next steps:
+
+1. Verify readiness (DB migrated + keystore up):
+     kubectl exec deploy/{{ include "cipherlatch.fullname" . }} -- \
+       python -c "import urllib.request;print(urllib.request.urlopen('http://localhost:8000/readyz').read().decode())"
+
+2. Bootstrap with the machine admin key (X-Admin-Key) against
+   {{ .Values.broker.issuer }}/v1/users, /v1/agents, ... — see README.
+
+3. Downstream services verify tokens with nothing but:
+     {{ .Values.broker.issuer }}/.well-known/jwks.json
+
+Notes:
+- Postgres is external by design; BROKER_DATABASE_URL points at it and
+  migrations self-apply on pod start under an advisory lock.
+- With keystore.type=vault every replica reads the same signing keys; rotate
+  via POST /v1/keys/rotate (platform admin) with zero downtime.
+- Credential brokering stays disabled until BROKER_CREDENTIAL_KEY is set.

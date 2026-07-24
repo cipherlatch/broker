@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install --quiet -r requirements-dev.txt
+      - run: pytest
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # gitleaks scans full history
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: pip-audit (blocking)
+        run: |
+          pip install --quiet -r requirements.txt pip-audit
+          pip-audit
+      - name: bandit SAST
+        run: |
+          pip install --quiet bandit
+          bandit -r app -ll
+      - name: gitleaks secret detection
+        run: |
+          # gitleaks CLI is MIT-licensed and free; the gitleaks-action wrapper
+          # requires a paid license for org-owned repos, so we run the binary.
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz" | tar -xz gitleaks
+          ./gitleaks detect --source . --no-git --no-banner --redact
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install --quiet -r requirements.txt cyclonedx-bom
+      - run: cyclonedx-py environment --of JSON -o sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Access map{% endblock %}
+{% block heading %}Access map{% endblock %}
+{% block content %}
+
+<section class="card">
+  <div class="card-head">
+    <h2>Agents → routes → credentials</h2>
+    <span class="badge">{{ 'all objects' if scope_all else 'your objects' }}</span>
+  </div>
+  <p class="muted small">Who can reach what, scoped to what your permission set can already see.
+    Ribbon width is request volume over the last {{ graph.window_days }} days (from the audit log);
+    a grant with no traffic shows at baseline width. The dashed span is a direct token exchange —
+    a credential granted to an agent with no route in between. Hover a node to trace its paths.</p>
+
+  {% if graph.links_ar or graph.links_rc or graph.direct %}
+  <script type="application/json" id="access-map-data">{{ graph | tojson }}</script>
+  <div id="access-map" class="access-map"></div>
+  <div class="map-legend muted small">
+    <span><span class="sw"></span> ribbon width = requests · {{ graph.window_days }}d</span>
+    <span><span class="sw sw-direct"></span> direct exchange (no route)</span>
+  </div>
+  {% else %}
+  <p class="muted empty">Nothing to map yet — grant an agent access to a route or credential
+    and it appears here.</p>
+  {% endif %}
+</section>
+
+{% endblock %}
